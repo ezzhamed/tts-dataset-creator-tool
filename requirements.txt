@@ -1,0 +1,15 @@
+fastapi
+uvicorn
+websockets
+watchdog
+yt_dlp
+pandas
+pydub
+transformers
+torch
+selenium
+cryptography
+python-multipart
+protobuf
+sentencepiece
+requests

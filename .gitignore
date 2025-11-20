@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+node_modules/
+storage/
+*.pem
+.env
+.DS_Store
+dist/
+coverage/
+*.log
