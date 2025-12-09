@@ -4,18 +4,35 @@ import time
 import pandas as pd
 from selenium import webdriver
 from selenium.webdriver.common.by import By
+import yt_dlp
+from tqdm import tqdm
 
 
 class YouTubeScraper:
     
     
-    def __init__(self, channel_name, channel_url, voice, output_dir, csv_name):
+    def __init__(self, channel_name, channel_url, voice, output_dir, csv_name, output_audio_dir='./audios', progress_callback=None):
         self.channel_name = channel_name
         self.channel_url = channel_url
         self.voice = voice
         self.output_dir = output_dir
         self.csv_name = csv_name
+        self.output_audio_dir = output_audio_dir
+        self.progress_callback = progress_callback
         self._driver = webdriver.Chrome()
+        self.ydl_opts = {
+            'format': 'bestaudio',
+            'extractaudio': True,
+            'audioformat': 'wav',
+            'verbose': True,
+            'writesubtitles': False,
+            'writeautomaticsub': False,
+            'skip_download': False,
+            'postprocessors': [{
+                'key': 'FFmpegExtractAudio',
+                'preferredcodec': 'wav',
+            }]
+        }
     
     
     def _scroll_to_end(self):
@@ -70,6 +87,40 @@ class YouTubeScraper:
             return [], [], [], [], []
         
         return video_title_lst, release_date_lst1, release_date_lst2, video_link_lst, video_duration_lst
+
+    def download_videos(self, df):
+        os.makedirs(self.output_audio_dir, exist_ok=True)
+        total_videos = len(df)
+        downloaded_files = []
+        
+        print(f"Starting download of {total_videos} videos to {self.output_audio_dir}...")
+        
+        for index, row in df.iterrows():
+            if self.progress_callback:
+                # We allocate 50% for scraping (already done roughly) and 50% for downloading? 
+                # Or just treat downloading as the main progress step since scraping is fast.
+                # Let's say scraping was 10%, downloading is 90%.
+                # percent = 10 + int((index / total_videos) * 90)
+                percent = int((index / total_videos) * 100)
+                self.progress_callback(f"Downloading {index + 1}/{total_videos}: {row['video_title'][:30]}...", percent)
+            
+            # Construct filename: channel_audio_index
+            # We use a standard naming convention to easily find it later
+            filename = f"{self.channel_name.lower()}_audio_{index}"
+            file_path = os.path.join(self.output_audio_dir, f'{filename}')
+            
+            self.ydl_opts['outtmpl'] = file_path
+            
+            try:
+                with yt_dlp.YoutubeDL(self.ydl_opts) as ydl:
+                    ydl.download([row['video_link']])
+                print(f"Successfully downloaded: {row['video_title']}")
+                downloaded_files.append(filename)
+            except Exception as e:
+                print(f"Error downloading {row['video_title']}: {str(e)}")
+                downloaded_files.append(None) # Mark as failed
+                
+        return downloaded_files
 
     def collect_data(self):
         self._driver.get(self.channel_url)
@@ -153,5 +204,14 @@ class YouTubeScraper:
             'video_duration (min)': video_duration_lst,
             'voice': [voice_label]*len(video_link_lst),
         })
+        
+        # Start Downloading
+        audio_filenames = self.download_videos(df)
+        
+        # Add filename column
+        df['audio_filename'] = audio_filenames
+        
+        # Filter out failed downloads
+        df = df[df['audio_filename'].notna()]
         
         df.to_csv(os.path.join(self.output_dir, self.csv_name), encoding='utf-8-sig', index=False)

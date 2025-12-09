@@ -42,10 +42,27 @@ class FileIPC:
         }
         file_path = self.progress_dir / f"{task_id}.json"
         # Write to temp file then rename to avoid race conditions
+        # Write to temp file then rename to avoid race conditions
         temp_path = file_path.with_suffix(".tmp")
-        with open(temp_path, "w") as f:
-            json.dump(progress_data, f)
-        os.replace(temp_path, file_path)
+        try:
+            with open(temp_path, "w") as f:
+                json.dump(progress_data, f)
+            
+            # Retry replace mechanism for Windows file locking
+            max_retries = 5
+            for i in range(max_retries):
+                try:
+                    os.replace(temp_path, file_path)
+                    break
+                except PermissionError:
+                    if i == max_retries - 1:
+                        # If meaningful validation/logging needed, do it here
+                        # For progress updates, we can sometimes skip a frame if locked
+                        print(f"Warning: Could not update progress file {task_id} due to lock.")
+                        break
+                    time.sleep(0.1)
+        except Exception as e:
+            print(f"Error in update_progress: {e}")
 
     def get_progress(self, task_id: str):
         """Reads the progress file for a task"""

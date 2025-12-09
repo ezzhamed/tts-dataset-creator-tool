@@ -72,14 +72,21 @@ def process_task(task_file):
             
             output_dir = str(STORAGE_DIR / "datasets_csv")
             csv_name = f"{name_prefix}_metadata.csv"
+            output_audio_dir = str(STORAGE_DIR / "audios")
             
             print(f"Scraping {url}...")
+            
+            def scraper_progress(message, percent):
+                 ipc.update_progress(task_id, message, percent)
+                 
             scraper = YouTubeScraper(
                 channel_name=name_prefix,
                 channel_url=url,
                 voice=voice_name,
                 output_dir=output_dir,
-                csv_name=csv_name
+                csv_name=csv_name,
+                output_audio_dir=output_audio_dir,
+                progress_callback=scraper_progress
             )
             scraper.collect_data()
             
@@ -90,31 +97,71 @@ def process_task(task_file):
             }
 
         elif task_type == "split_audio":
-            # Payload: csv_filename
-            csv_filename = payload["csv_filename"]
-            csv_path = str(STORAGE_DIR / "datasets_csv" / csv_filename)
+            # Payload: csv_filename OR audio_folder
+            csv_filename = payload.get("csv_filename")
+            audio_folder = payload.get("audio_folder")
             
-            # Use defaults or derive from payload
-            audio_name = "audio" # Could be parameterized
-            channel_name = csv_filename.replace("_metadata.csv", "")
-            output_csv_name = f"{channel_name}_splitted.csv"
+            def progress_callback(message, percent):
+                ipc.update_progress(task_id, message, percent)
             
-            print(f"Splitting audio from {csv_filename}...")
-            
-            splitter = AudioSplitter(
-                csv_path=csv_path,
-                audio_name=audio_name,
-                channel_name=channel_name,
-                output_csv_name=output_csv_name,
-                output_splitted_audio_dir=str(STORAGE_DIR / "audios" / "splitted_audios"),
-                output_audio_dir=str(STORAGE_DIR / "audios"),
-                output_csv_dir=str(STORAGE_DIR / "datasets_csv" / "audio_datasets")
-            )
+            if csv_filename:
+                csv_path = str(STORAGE_DIR / "datasets_csv" / csv_filename)
+                
+                # Use defaults or derive from payload
+                audio_name = "audio" # Could be parameterized
+                channel_name = csv_filename.replace("_metadata.csv", "")
+                output_csv_name = f"{channel_name}_splitted.csv"
+                
+                # extracting params from payload if they exist
+                silence_len = payload.get("silence_len", 300)
+                max_audio_len = payload.get("max_audio_len", 25000)
+                
+                print(f"Splitting audio from CSV {csv_filename} with silence_len={silence_len}, max_len={max_audio_len}...")
+                
+                splitter = AudioSplitter(
+                    csv_path=csv_path,
+                    audio_name=audio_name,
+                    channel_name=channel_name,
+                    output_csv_name=output_csv_name,
+                    output_splitted_audio_dir=str(STORAGE_DIR / "audios" / "splitted_audios"),
+                    output_audio_dir=str(STORAGE_DIR / "audios"),
+                    output_csv_dir=str(STORAGE_DIR / "datasets_csv" / "audio_datasets"),
+                    progress_callback=progress_callback,
+                    silence_len=int(silence_len),
+                    max_audio_len=int(max_audio_len)
+                )
+            elif audio_folder:
+                # Handle direct folder input
+                target_folder = Path(audio_folder)
+                if not target_folder.is_absolute():
+                    # If not absolute, assume relative to STORAGE_DIR
+                    target_folder = STORAGE_DIR / audio_folder
+                
+                print(f"Splitting audio from folder {target_folder}...")
+                
+                # extracting params from payload if they exist
+                silence_len = payload.get("silence_len", 300)
+                max_audio_len = payload.get("max_audio_len", 25000)
+                
+                if not target_folder.exists():
+                     raise FileNotFoundError(f"Audio folder not found: {target_folder}")
+
+                splitter = AudioSplitter(
+                    input_audio_folder=str(target_folder),
+                    output_splitted_audio_dir=str(STORAGE_DIR / "audios" / "splitted_audios"),
+                    output_csv_dir=str(STORAGE_DIR / "datasets_csv" / "audio_datasets"),
+                    progress_callback=progress_callback,
+                    silence_len=int(silence_len),
+                    max_audio_len=int(max_audio_len)
+                )
+            else:
+                raise ValueError("Either csv_filename or audio_folder must be provided")
+
             splitter.process_videos()
             
             result = {
                 "status": "success",
-                "output_csv": output_csv_name,
+                "output_csv": splitter.output_csv_name if hasattr(splitter, 'output_csv_name') else "output.csv",
                 "audio_dir": str(STORAGE_DIR / "audios" / "splitted_audios")
             }
 

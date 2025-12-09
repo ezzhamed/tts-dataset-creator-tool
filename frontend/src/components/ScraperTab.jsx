@@ -29,7 +29,7 @@ const ScraperTab = () => {
     return (
         <div className="animate-fade-in">
             <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-white">1. YouTube Scraper</h2>
+                <h2 className="text-2xl font-bold text-white">1. YouTube Scraper & Downloader</h2>
                 <span className="text-sm text-gray-400 bg-black px-3 py-1 rounded-full border border-gray-800">Step 1 of 3</span>
             </div>
 

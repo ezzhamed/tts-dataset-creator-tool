@@ -1,31 +1,25 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import StatusViewer from './StatusViewer';
 
 const SplitterTab = () => {
-    const [csvs, setCsvs] = useState([]);
-    const [selectedCsv, setSelectedCsv] = useState('');
     const [taskId, setTaskId] = useState(null);
     const [error, setError] = useState(null);
-
-    useEffect(() => {
-        fetch("https://localhost:8000/files/csvs")
-            .then(res => res.json())
-            .then(data => setCsvs(data))
-            .catch(err => console.error("Failed to load CSVs", err));
-    }, []);
+    const [audioFolder, setAudioFolder] = useState('');
 
     const handleSplit = async () => {
-        if (!selectedCsv) {
-            setError("Please select a CSV file.");
+        if (!audioFolder) {
+            setError("Please enter the audio folder path.");
             return;
         }
+
+        const payload = { audio_folder: audioFolder };
         setError(null);
 
         try {
             const response = await fetch("https://localhost:8000/tasks/split", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ csv_filename: selectedCsv })
+                body: JSON.stringify(payload)
             });
             const data = await response.json();
             setTaskId(data.task_id);
@@ -43,17 +37,17 @@ const SplitterTab = () => {
 
             <div className="space-y-6">
                 <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">Select Scraped Metadata CSV</label>
-                    <select
-                        value={selectedCsv}
-                        onChange={(e) => setSelectedCsv(e.target.value)}
+                    <div className="bg-gray-900/50 border border-gray-800 rounded-lg p-4 mb-4 text-sm text-gray-400">
+                        The tool will scan the provided folder for audio files (.wav, .mp3, etc.) and generate a new dataset CSV.
+                    </div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Input Audio Folder Path</label>
+                    <input
+                        type="text"
+                        value={audioFolder}
+                        onChange={(e) => setAudioFolder(e.target.value)}
+                        placeholder="e.g. storage/audios/my_channel OR C:\Path\To\Audios"
                         className="block w-full rounded-lg bg-black border-gray-800 text-white focus:border-white focus:ring-white sm:text-sm p-3 shadow-sm transition-colors"
-                    >
-                        <option value="">-- Select CSV --</option>
-                        {csvs.map(csv => (
-                            <option key={csv} value={csv}>{csv}</option>
-                        ))}
-                    </select>
+                    />
                 </div>
 
                 {error && (
@@ -66,7 +60,7 @@ const SplitterTab = () => {
                     onClick={handleSplit}
                     className="w-full sm:w-auto bg-white text-black px-6 py-3 rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-white transition-all duration-200 font-medium shadow-lg"
                 >
-                    Start Downloading & Splitting
+                    Start Splitting
                 </button>
             </div>
 
