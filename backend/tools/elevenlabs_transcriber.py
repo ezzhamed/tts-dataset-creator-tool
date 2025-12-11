@@ -88,13 +88,19 @@ class ElevenLabsTranscriber:
         
         with open(audio_file_path, 'rb') as audio_file:
             files = {
-                'audio': (audio_file_path.name, audio_file, 'audio/mpeg')
+                'file': (audio_file_path.name, audio_file, 'audio/mpeg')
+            }
+            
+            # model_id is required by ElevenLabs Speech-to-Text API
+            data = {
+                'model_id': 'scribe_v1'
             }
             
             response = requests.post(
                 self.api_url,
                 headers=headers,
-                files=files
+                files=files,
+                data=data
             )
         
         if response.status_code == 200:
