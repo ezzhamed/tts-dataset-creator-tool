@@ -44,14 +44,15 @@ class AudioTranscriber:
         transcriptions = {}
         sorted_filenames = sorted(os.listdir(folder_path))
         
-        # Filter only .wav files
-        wav_files = [f for f in sorted_filenames if f.endswith(".wav")]
-        total_files = len(wav_files)
+        # Filter audio files with supported extensions
+        extensions = ('.wav', '.mp3', '.flac', '.m4a', '.ogg')
+        audio_files = [f for f in sorted_filenames if f.lower().endswith(extensions)]
+        total_files = len(audio_files)
         
         print(f"Starting transcription of {total_files} audio files...")
         start = time.time()
         
-        for i, filename in enumerate(wav_files, 1):
+        for i, filename in enumerate(audio_files, 1):
             audio_path = os.path.join(folder_path, filename)
             transcription = self.transcribe_audio(audio_path)
             transcriptions[filename] = transcription['text']

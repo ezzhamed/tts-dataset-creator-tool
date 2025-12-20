@@ -14,7 +14,8 @@ const ScraperTab = () => {
         setError(null);
 
         try {
-            const response = await fetch("https://localhost:8000/tasks/scrape", {
+            const apiUrl = import.meta.env.VITE_API_URL || "https://localhost:8000";
+            const response = await fetch(`${apiUrl}/tasks/scrape`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ playlist_url: url })

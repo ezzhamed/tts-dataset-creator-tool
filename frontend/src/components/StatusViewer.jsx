@@ -35,7 +35,9 @@ const StatusViewer = ({ taskId }) => {
         if (!taskId) return;
 
         // Connect to WebSocket
-        ws.current = new WebSocket(`wss://localhost:8000/ws/${taskId}`);
+        const apiUrl = import.meta.env.VITE_API_URL || "https://localhost:8000";
+        const wsUrl = apiUrl.replace(/^http/, 'ws');
+        ws.current = new WebSocket(`${wsUrl}/ws/${taskId}`);
 
         ws.current.onopen = () => {
             setStatus('connected');

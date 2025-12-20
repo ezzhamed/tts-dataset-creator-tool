@@ -5,6 +5,7 @@ const SplitterTab = () => {
     const [taskId, setTaskId] = useState(null);
     const [error, setError] = useState(null);
     const [audioFolder, setAudioFolder] = useState('');
+    const [splittingMethod, setSplittingMethod] = useState('vad'); // 'vad' or 'semantic'
 
     const handleSplit = async () => {
         if (!audioFolder) {
@@ -12,11 +13,15 @@ const SplitterTab = () => {
             return;
         }
 
-        const payload = { audio_folder: audioFolder };
+        const payload = {
+            audio_folder: audioFolder,
+            splitting_method: splittingMethod
+        };
         setError(null);
 
         try {
-            const response = await fetch("https://localhost:8000/tasks/split", {
+            const apiUrl = import.meta.env.VITE_API_URL || "https://localhost:8000";
+            const response = await fetch(`${apiUrl}/tasks/split`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload)
@@ -48,6 +53,32 @@ const SplitterTab = () => {
                         placeholder="e.g. storage/audios/my_channel OR C:\Path\To\Audios"
                         className="block w-full rounded-lg bg-black border-gray-800 text-white focus:border-white focus:ring-white sm:text-sm p-3 shadow-sm transition-colors"
                     />
+                </div>
+
+                <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-3">Splitting Method</label>
+                    <div className="grid grid-cols-2 gap-4">
+                        <button
+                            onClick={() => setSplittingMethod('vad')}
+                            className={`p-4 rounded-lg border transition-all ${splittingMethod === 'vad'
+                                ? 'bg-white text-black border-white'
+                                : 'bg-black text-gray-400 border-gray-800 hover:border-gray-600'
+                                }`}
+                        >
+                            <div className="font-medium">Silero VAD</div>
+                            <div className="text-xs mt-1 opacity-75">Fast, Silence-based</div>
+                        </button>
+                        <button
+                            onClick={() => setSplittingMethod('semantic')}
+                            className={`p-4 rounded-lg border transition-all ${splittingMethod === 'semantic'
+                                ? 'bg-white text-black border-white'
+                                : 'bg-black text-gray-400 border-gray-800 hover:border-gray-600'
+                                }`}
+                        >
+                            <div className="font-medium">Semantic (Whisper)</div>
+                            <div className="text-xs mt-1 opacity-75">Accurate, Sentence-based</div>
+                        </button>
+                    </div>
                 </div>
 
                 {error && (

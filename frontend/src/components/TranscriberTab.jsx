@@ -27,7 +27,8 @@ const TranscriberTab = () => {
                 payload.api_key = apiKey;
             }
 
-            const response = await fetch("https://localhost:8000/tasks/transcribe", {
+            const apiUrl = import.meta.env.VITE_API_URL || "https://localhost:8000";
+            const response = await fetch(`${apiUrl}/tasks/transcribe`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload)
@@ -60,8 +61,8 @@ const TranscriberTab = () => {
                         <button
                             onClick={() => setMethod('local')}
                             className={`p-4 rounded-lg border transition-all ${method === 'local'
-                                    ? 'bg-white text-black border-white'
-                                    : 'bg-black text-gray-400 border-gray-800 hover:border-gray-600'
+                                ? 'bg-white text-black border-white'
+                                : 'bg-black text-gray-400 border-gray-800 hover:border-gray-600'
                                 }`}
                         >
                             <div className="font-medium">Local STT Model</div>
@@ -70,8 +71,8 @@ const TranscriberTab = () => {
                         <button
                             onClick={() => setMethod('elevenlabs')}
                             className={`p-4 rounded-lg border transition-all ${method === 'elevenlabs'
-                                    ? 'bg-white text-black border-white'
-                                    : 'bg-black text-gray-400 border-gray-800 hover:border-gray-600'
+                                ? 'bg-white text-black border-white'
+                                : 'bg-black text-gray-400 border-gray-800 hover:border-gray-600'
                                 }`}
                         >
                             <div className="font-medium">ElevenLabs API</div>

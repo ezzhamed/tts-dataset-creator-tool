@@ -1,5 +1,6 @@
 import os
 import time
+import re
 
 import pandas as pd
 from selenium import webdriver
@@ -28,6 +29,7 @@ class YouTubeScraper:
             'writesubtitles': False,
             'writeautomaticsub': False,
             'skip_download': False,
+            'noplaylist': True,  # Download only the video, not the playlist
             'postprocessors': [{
                 'key': 'FFmpegExtractAudio',
                 'preferredcodec': 'wav',
@@ -146,22 +148,34 @@ class YouTubeScraper:
             if is_playlist:
                 # Playlist Selectors
                 video_elements = self._driver.find_elements(By.TAG_NAME, 'ytd-playlist-video-renderer')
+                print(f"Found {len(video_elements)} videos in playlist")
                 for video in video_elements:
                     try:
                         title_el = video.find_element(By.ID, 'video-title')
-                        video_link_lst.append(title_el.get_attribute('href'))
-                        video_title_lst.append(title_el.get_attribute('title'))
+                        raw_href = title_el.get_attribute('href')
                         
-                        # Duration
-                        try:
-                            duration_el = video.find_element(By.XPATH, './/span[contains(@class, "ytd-thumbnail-overlay-time-status-renderer")]')
-                            video_duration_lst.append(duration_el.text.strip())
-                        except:
-                            video_duration_lst.append("0:00")
+                        # Clean the video URL - extract only the video ID
+                        # Playlist URLs look like: /watch?v=VIDEO_ID&list=PLAYLIST_ID&index=N
+                        # We need only: https://www.youtube.com/watch?v=VIDEO_ID
+                        if raw_href:
+                            video_id_match = re.search(r'[?&]v=([^&]+)', raw_href)
+                            if video_id_match:
+                                video_id = video_id_match.group(1)
+                                clean_url = f"https://www.youtube.com/watch?v={video_id}"
+                                video_link_lst.append(clean_url)
+                                video_title_lst.append(title_el.get_attribute('title'))
+                                print(f"Added video: {title_el.get_attribute('title')} - {clean_url}")
+                                
+                                # Duration
+                                try:
+                                    duration_el = video.find_element(By.XPATH, './/span[contains(@class, "ytd-thumbnail-overlay-time-status-renderer")]')
+                                    video_duration_lst.append(duration_el.text.strip())
+                                except:
+                                    video_duration_lst.append("0:00")
 
-                        # Playlist doesn't always show relative time easily, using placeholder
-                        release_date_lst1.append("0")
-                        release_date_lst2.append("unknown")
+                                # Playlist doesn't always show relative time easily, using placeholder
+                                release_date_lst1.append("0")
+                                release_date_lst2.append("unknown")
                     except Exception as e:
                         print(f"Error parsing video in playlist: {e}")
             else:

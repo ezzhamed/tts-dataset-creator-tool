@@ -13,3 +13,5 @@ python-multipart
 protobuf
 sentencepiece
 requests
+faster-whisper
+torchaudio

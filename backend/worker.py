@@ -15,8 +15,11 @@ try:
     from backend.processors.youtube_scraper import YouTubeScraper
     from backend.processors.audio_splitter import AudioSplitter
     from backend.processors.audio_transcriber import AudioTranscriber
+    from backend.processors.semantic_splitter import SemanticSplitter
 except ImportError as e:
     print(f"Error importing user scripts: {e}")
+    # Define dummy classes or handle missing imports later
+    SemanticSplitter = None
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 STORAGE_DIR = BASE_DIR / "storage"
@@ -157,18 +160,72 @@ def process_task(task_file):
             else:
                 raise ValueError("Either csv_filename or audio_folder must be provided")
 
-            splitter.process_videos()
-            
-            result = {
-                "status": "success",
-                "output_csv": splitter.output_csv_name if hasattr(splitter, 'output_csv_name') else "output.csv",
-                "audio_dir": str(STORAGE_DIR / "audios" / "splitted_audios")
-            }
+
+
+            splitter_method = payload.get("splitting_method", "vad") # vad or semantic
+
+            if splitter_method == "semantic":
+                print(f"Using Semantic Splitter (Faster-Whisper)...")
+                if not audio_folder:
+                     # If user provided CSV, we still need folder. 
+                     # Current semantic splitter only supports folder input for simplicity or needs adaptation.
+                     # Let's support folder path derivation from CSV if needed, but UI sends folder.
+                     # Assuming UI sends audio_folder for semantic mode as per plan.
+                     pass
+
+                # If we are in CSV mode but want semantic, we might need to derive folder.
+                # simpler: Semantic Mode strictly requires audio_folder for now.
+                
+                target_folder_semantic = None
+                if audio_folder:
+                    target_folder_semantic = str(target_folder)
+                elif csv_filename:
+                     # Attempt to derive
+                     if hasattr(splitter, 'output_audio_dir'):
+                          target_folder_semantic = splitter.output_audio_dir
+                
+                if not target_folder_semantic:
+                     raise ValueError("Semantic Splitting requires an audio folder input.")
+
+                if SemanticSplitter is None:
+                    raise ImportError("SemanticSplitter is not available. Please install 'faster-whisper' and 'torchaudio'.")
+
+                semantic_splitter = SemanticSplitter(
+                    input_audio_folder=target_folder_semantic,
+                    output_splitted_audio_dir=str(STORAGE_DIR / "audios" / "splitted_audios"),
+                    output_csv_dir=str(STORAGE_DIR / "datasets_csv" / "audio_datasets"),
+                    progress_callback=progress_callback
+                )
+                res = semantic_splitter.split_audio()
+                
+                result = {
+                    "status": "success",
+                    "output_csv": res["csv_filename"],
+                    "audio_dir": res["audio_dir"]
+                }
+            else:
+                # VAD Mode (Existing)
+                splitter.process_videos()
+                
+                result = {
+                    "status": "success",
+                    "output_csv": splitter.output_csv_name if hasattr(splitter, 'output_csv_name') else "output.csv",
+                    "audio_dir": str(STORAGE_DIR / "audios" / "splitted_audios")
+                }
 
         elif task_type == "transcribe_audio":
             # Payload: output_csv_name, method ('local' or 'elevenlabs'), api_key (if elevenlabs)
             
-            target_folder = str(STORAGE_DIR / "audios" / "splitted_audios")
+            # Determine target folder
+            audio_folder = payload.get("audio_folder")
+            if audio_folder:
+                target_folder = Path(audio_folder)
+                if not target_folder.is_absolute():
+                     target_folder = STORAGE_DIR / audio_folder
+                target_folder = str(target_folder)
+            else:
+                target_folder = str(STORAGE_DIR / "audios" / "splitted_audios")
+
             output_csv_name = payload.get("output_csv_name", "transcription.csv")
             method = payload.get("method", "local")
             
