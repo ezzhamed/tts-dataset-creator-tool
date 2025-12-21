@@ -33,7 +33,7 @@ class FileIPC:
         return task_id
 
     def update_progress(self, task_id: str, message: str, percent: int = None):
-        """Updates the progress file for a task"""
+        """Updates the progress file for a task with robust retry logic"""
         progress_data = {
             "task_id": task_id,
             "message": message,
@@ -41,28 +41,42 @@ class FileIPC:
             "updated_at": time.time()
         }
         file_path = self.progress_dir / f"{task_id}.json"
-        # Write to temp file then rename to avoid race conditions
-        # Write to temp file then rename to avoid race conditions
         temp_path = file_path.with_suffix(".tmp")
-        try:
-            with open(temp_path, "w") as f:
-                json.dump(progress_data, f)
-            
-            # Retry replace mechanism for Windows file locking
-            max_retries = 5
-            for i in range(max_retries):
+        
+        max_retries = 5
+        retry_delay = 0.2  # seconds
+        
+        for attempt in range(max_retries):
+            try:
+                # Try writing to temp file first
+                with open(temp_path, "w") as f:
+                    json.dump(progress_data, f)
+                
+                # Try to replace with retry
                 try:
                     os.replace(temp_path, file_path)
-                    break
+                    return  # Success
                 except PermissionError:
-                    if i == max_retries - 1:
-                        # If meaningful validation/logging needed, do it here
-                        # For progress updates, we can sometimes skip a frame if locked
-                        print(f"Warning: Could not update progress file {task_id} due to lock.")
-                        break
-                    time.sleep(0.1)
-        except Exception as e:
-            print(f"Error in update_progress: {e}")
+                    # If replace fails, try direct write
+                    try:
+                        with open(file_path, "w") as f:
+                            json.dump(progress_data, f)
+                        return  # Success
+                    except PermissionError:
+                        pass  # Will retry
+                        
+            except PermissionError:
+                pass  # Will retry
+            except Exception as e:
+                print(f"Error in update_progress: {e}")
+                return
+            
+            # Wait before retry
+            if attempt < max_retries - 1:
+                time.sleep(retry_delay)
+        
+        # If all retries failed, just skip this progress update (non-critical)
+        # The transcription will continue without updating progress
 
     def get_progress(self, task_id: str):
         """Reads the progress file for a task"""

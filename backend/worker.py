@@ -284,15 +284,11 @@ def process_task(task_file):
         os.remove(task_file)
 
 def main():
-    # Clear any existing jobs on startup
-    print("Cleaning up previous jobs...")
-    for job_file in ipc.jobs_dir.glob("*.json"):
-        try:
-            os.remove(job_file)
-            print(f"Removed stale job: {job_file.name}")
-        except Exception as e:
-            print(f"Failed to remove stale job {job_file.name}: {e}")
-
+    # Check for pending jobs on startup
+    pending_jobs = list(ipc.jobs_dir.glob("*.json"))
+    if pending_jobs:
+        print(f"Found {len(pending_jobs)} pending job(s). Will process them...")
+    
     print("TTS Worker started. Waiting for jobs...")
     while True:
         # List all json files in jobs dir
